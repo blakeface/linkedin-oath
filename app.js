@@ -45,14 +45,14 @@ function(accessToken, refreshToken, profile, done) {
   console.log(profile);
   done(null, {
     id: profile.id,
-    displayName: profile.displayName
+    displayName: profile.displayName,
+    token: accessToken
   })
 }
 ));
 
 app.get('/auth/linkedin', passport.authenticate('linkedin'),
 function(req, res){
-
 });
 
 app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
