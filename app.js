@@ -2,9 +2,10 @@ var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
-var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var passport = require('passport');
+var cookieParser = require('cookie-parser');
+var cookieSession = require('cookie-session');
 var LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
 var dotenv = require('dotenv').load()
 
@@ -20,30 +21,38 @@ app.set('view engine', 'hbs');
 // uncomment after placing your favicon in /public
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
+app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
 app.use(passport.initialize());
-app.use(passport.session());
+app.use(passport.session({
+  secret: process.env.LINKEDIN_CLIENT_SECRET
+}));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(cookieSession({
+  name: "session",
+  keys: ['key1', 'key2']
+}))
 
 passport.use(new LinkedInStrategy({
-    clientID: process.env.LINKEDIN_CLIENT_ID,
-    clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-    callbackURL: "http://localhost:3000/auth/linkedin/callback",
-    scope: ['r_emailaddress', 'r_basicprofile']
-  },
-  function(accessToken, refreshToken, profile, done) {
-    done(null, {
-      id: profile.id,
-      displayName: profile.displayName,
-      token: accessToken
-    })
-  }
+  clientID: process.env.LINKEDIN_CLIENT_ID,
+  clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+  callbackURL: process.env.HOST + "/auth/linkedin/callback",
+  scope: ['r_emailaddress', 'r_basicprofile'],
+  state: true
+},
+function(accessToken, refreshToken, profile, done) {
+  console.log(profile);
+  done(null, {
+    id: profile.id,
+    displayName: profile.displayName
+  })
+}
 ));
 
-app.get('/auth/linkedin', passport.authenticate('linkedin', { state: 'SOME STATE'  }),
+app.get('/auth/linkedin', passport.authenticate('linkedin'),
 function(req, res){
+
 });
 
 app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
@@ -52,12 +61,17 @@ app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
 }));
 
 passport.serializeUser(function(user, done) {
-  done(null, user.id);
+  done(null, user);
 });
 
-passport.deserializeUser(function(id, done) {
-  done(err, user);
+passport.deserializeUser(function(user, done) {
+  done(null, user)
 });
+
+app.use(function (req, res, next) {
+  res.locals.user = req.session.passport.user
+  next()
+})
 
 app.use('/', routes);
 app.use('/users', users);
